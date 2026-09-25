@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { JiraClient, JiraIssue } from './jira-client.js';
 
 const baseUrl = process.env.JIRA_BASE_URL;
@@ -86,6 +87,14 @@ async function main(): Promise<void> {
 }
 
 main().catch(error => {
-  console.error(error instanceof Error ? error.message : error);
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const responseBody = typeof error.response?.data === 'string'
+      ? error.response.data
+      : JSON.stringify(error.response?.data ?? 'No response body');
+    console.error(`Jira request failed${status ? ` (${status})` : ''}: ${responseBody}`);
+  } else {
+    console.error(error instanceof Error ? error.message : error);
+  }
   process.exitCode = 1;
 });

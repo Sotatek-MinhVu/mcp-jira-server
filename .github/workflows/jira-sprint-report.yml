@@ -21,5 +21,6 @@ jobs:
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_PAT: ${{ secrets.JIRA_PAT }}
+          JIRA_USER_AGENT: ${{ secrets.JIRA_USER_AGENT }}
           GOOGLE_CHAT_WEBHOOK: ${{ secrets.GOOGLE_CHAT_WEBHOOK }}
           JIRA_PROJECT_KEY: SAYDI
