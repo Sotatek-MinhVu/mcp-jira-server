@@ -8,6 +8,7 @@ on:
 jobs:
   report:
     runs-on: ubuntu-latest
+    environment: JIRA_BASE_URL
     steps:
       - uses: actions/checkout@v4
 
