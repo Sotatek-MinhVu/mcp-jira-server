@@ -6,15 +6,23 @@ const personalAccessToken = process.env.JIRA_PAT;
 const webhookUrl = process.env.GOOGLE_CHAT_WEBHOOK;
 const projectKey = process.env.JIRA_PROJECT_KEY ?? 'SAYDI';
 
-if (!baseUrl || !personalAccessToken || !webhookUrl) {
-  throw new Error('JIRA_BASE_URL, JIRA_PAT, and GOOGLE_CHAT_WEBHOOK are required');
+const missingSecrets = [
+  ['JIRA_BASE_URL', baseUrl],
+  ['JIRA_PAT', personalAccessToken],
+  ['GOOGLE_CHAT_WEBHOOK', webhookUrl],
+].filter(([, value]) => !value).map(([name]) => name);
+
+if (missingSecrets.length > 0) {
+  throw new Error(`Missing GitHub Actions secret(s): ${missingSecrets.join(', ')}. Add them as repository secrets, or configure the workflow environment that contains them.`);
 }
 
-const configuredWebhookUrl = webhookUrl;
+const configuredBaseUrl = baseUrl!;
+const configuredPersonalAccessToken = personalAccessToken!;
+const configuredWebhookUrl = webhookUrl!;
 
 const jira = new JiraClient({
-  baseUrl,
-  personalAccessToken,
+  baseUrl: configuredBaseUrl,
+  personalAccessToken: configuredPersonalAccessToken,
   userAgent: process.env.JIRA_USER_AGENT,
 });
 
@@ -41,11 +49,20 @@ function statusLines(issues: JiraIssue[]): string {
   return rankedLines(counts);
 }
 
+function issueLines(issues: JiraIssue[]): string {
+  return issues
+    .map(issue => `• ${issue.key} — ${issue.fields.summary} (${assigneeName(issue)})`)
+    .join('\n') || '• None';
+}
+
 async function main(): Promise<void> {
   const jql = `project = ${projectKey} AND sprint in openSprints() ORDER BY key ASC`;
   const issues = await jira.searchAllIssues(jql);
   const bugs = issues.filter(issue => issue.fields.issuetype.name.toLowerCase() === 'bug');
   const completed = issues.filter(issue => issue.fields.status.name.toLowerCase().startsWith('done'));
+  const deployedToProduction = issues.filter(
+    issue => issue.fields.status.name.toLowerCase() === 'done on production',
+  );
 
   const bugsByAssignee = new Map<string, number>();
   const completedByAssignee = new Map<string, number>();
@@ -62,12 +79,16 @@ async function main(): Promise<void> {
     '',
     `Bugs: ${bugs.length}`,
     `Completed: ${completed.length}`,
+    `Deployed to production: ${deployedToProduction.length}`,
     '',
     'Bugs by assignee:',
     rankedLines(bugsByAssignee),
     '',
     'Completed tickets by assignee:',
     rankedLines(completedByAssignee),
+    '',
+    'Tickets deployed to production:',
+    issueLines(deployedToProduction),
     '',
     'Status breakdown:',
     statusLines(issues),
